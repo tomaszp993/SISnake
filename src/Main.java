@@ -21,10 +21,11 @@ public class Main {
         double[] inputs = new double[]{45, 78, 85, 124};
         double[] targets = new double[]{1};
 
-        for(int i = 0; i < 100; i++) {
+        for(int i = 0; i < 5; i++) {
             net.train(inputs, targets, 0.3);
         }
         double[] o = net.calculate(inputs);
         System.out.println(Arrays.toString(o));
+
     }
 }

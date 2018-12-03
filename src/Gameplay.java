@@ -4,11 +4,14 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.util.Arrays;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 
 public class Gameplay extends JPanel implements KeyListener, ActionListener {
 
+    Network network = new Network(4, 12, 18, 4);
     // logo
     private ImageIcon titleImage;
     // glowa w lewo
@@ -24,9 +27,10 @@ public class Gameplay extends JPanel implements KeyListener, ActionListener {
     //apple
     private ImageIcon appleImage;
 
-
+    Robot robot;
 
     private int lenghtOfSnake = 3;
+    private int iteration = 100;
 
     private int scores;
 
@@ -44,9 +48,13 @@ public class Gameplay extends JPanel implements KeyListener, ActionListener {
     private int appleY = random.nextInt(23);
     // Kierunki ruchu
     private boolean left = false;
-    private boolean right = true;
+    private boolean right = false;
     private boolean up = false;
     private boolean down = false;
+
+    //target
+    private double[] target = new double[4];
+    private double[] output;
 
     //Czas
 
@@ -63,6 +71,12 @@ public class Gameplay extends JPanel implements KeyListener, ActionListener {
         initAppleXPositions();
         initAppleYPositions();
         scores = 0;
+        try {
+            robot = new Robot();
+        } catch (AWTException e1) {
+            e1.printStackTrace();
+        }
+
     }
 
     public void paint(Graphics g)
@@ -105,6 +119,12 @@ public class Gameplay extends JPanel implements KeyListener, ActionListener {
         g.setColor(Color.green);
         g.setFont(new Font("arial", Font.BOLD, 14));
         g.drawString("Długość:  " + lenghtOfSnake, 780, 50);
+
+        // Wyswietlanie iteracje
+        g.setColor(Color.green);
+        g.setFont(new Font("arial", Font.BOLD, 14));
+        g.drawString("Iteracja:  " + iteration, 50, 50);
+
 
         rightMouth = new ImageIcon("images/rightmouth.png");
         rightMouth.paintIcon(this, g, snakeXLenght[0], snakeYLenght[0]);
@@ -158,14 +178,17 @@ public class Gameplay extends JPanel implements KeyListener, ActionListener {
         {
             if(snakeXLenght[i] == snakeXLenght[0] && snakeYLenght[i] == snakeYLenght[0])
             {
-                right = left = up = down = false;
-
-                g.setColor(Color.GREEN);
-                g.setFont(new Font("arial", Font.BOLD, 50));
-                g.drawString("Game Over", 320, 300);
-
-                g.setFont(new Font("arial", Font.BOLD, 20));
-                g.drawString("Naciśnij SPACE, aby zrestartować", 290, 340);
+                moves = 0;
+                robot.keyPress(KeyEvent.VK_SPACE);
+                iteration++;
+//                right = left = up = down = false;
+//
+//                g.setColor(Color.GREEN);
+//                g.setFont(new Font("arial", Font.BOLD, 50));
+//                g.drawString("Game Over", 320, 300);
+//
+//                g.setFont(new Font("arial", Font.BOLD, 20));
+//                g.drawString("Naciśnij SPACE, aby zrestartować", 290, 340);
             }
         }
         g.dispose();
@@ -266,12 +289,17 @@ public class Gameplay extends JPanel implements KeyListener, ActionListener {
             }
             repaint();
         }
-        try {
-            Robot robot = new Robot();
-            robot.keyPress(KeyEvent.VK_DOWN);
-        } catch (AWTException e1) {
-            e1.printStackTrace();
+        getTarget(appleXPositions[appleX],appleYPositions[appleY], snakeXLenght[0], snakeYLenght[0]);
+        double[] inputs = new double[]{appleXPositions[appleX],appleYPositions[appleY],  snakeXLenght[0], snakeYLenght[0]};
+        for(int i = 0; i < iteration; i++) {
+            network.train(inputs, target, 0.2);
         }
+        output = network.calculate(inputs);
+        System.out.println(Arrays.toString(output));
+        System.out.println(Arrays.toString(target));
+
+        changeDirect(output);
+
 
     }
 
@@ -372,4 +400,107 @@ public class Gameplay extends JPanel implements KeyListener, ActionListener {
             appleYPositions[i] = appleYPositions[i-1] + 25;
         }
     }
+
+    public int getAppleX() {
+        return appleX;
+    }
+
+    public int getAppleY() {
+        return appleY;
+    }
+
+    private void getTarget(int appleX, int appleY, int snakeX, int snakeY) {
+
+        if(up) {
+            if(appleX > snakeX) {
+                initTarget("right");
+            } else if(appleX < snakeX) {
+                initTarget("left");
+            } else if(appleX == snakeX) {
+                initTarget("up");
+            }
+        }
+        if(down) {
+            if(appleX > snakeX) {
+                initTarget("right");
+            } else if(appleX < snakeX) {
+                initTarget("left");
+            } else if(appleX == snakeX) {
+                initTarget("down");
+            }
+        }
+        if(left) {
+            if(appleY > snakeY) {
+                initTarget("down");
+            } else if(appleY < snakeY) {
+                initTarget("up");
+            } else if(appleY == snakeY) {
+                initTarget("left");
+            }
+        }
+        if(right) {
+            if(appleY > snakeY) {
+                initTarget("down");
+            } else if(appleY < snakeY) {
+                initTarget("up");
+            } else if(appleY == snakeY) {
+                initTarget("right");
+            }
+        }
+
+    }
+
+    private void initTarget(String direction) {
+        switch(direction){
+            case "up": {
+                target[0] = 1;
+                target[1] = 0;
+                target[2] = 0;
+                target[3] = 0;
+                break;
+            }
+            case "down": {
+                target[0] = 0;
+                target[1] = 1;
+                target[2] = 0;
+                target[3] = 0;
+                break;
+            }
+            case "right": {
+                target[0] = 0;
+                target[1] = 0;
+                target[2] = 1;
+                target[3] = 0;
+                break;
+            }
+            case "left": {
+                target[0] = 0;
+                target[1] = 0;
+                target[2] = 0;
+                target[3] = 1;
+                break;
+            }
+            default: {
+                System.out.println("Switch sie wywalil");
+            }
+
+        }
+
+    }
+
+    private void changeDirect(double[] target) {
+        if(target[0] > 0.7) {
+            robot.keyPress(KeyEvent.VK_UP);
+        }
+        else if(target[1] > 0.7) {
+            robot.keyPress(KeyEvent.VK_DOWN);
+        }
+        else if(target[2] > 0.7) {
+            robot.keyPress(KeyEvent.VK_RIGHT);
+        }
+        else if(target[3] > 0.7) {
+            robot.keyPress(KeyEvent.VK_LEFT);
+        }
+    }
+
 }
